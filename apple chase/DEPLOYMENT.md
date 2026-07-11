@@ -31,6 +31,22 @@ To run the local server and host global highscores in a local JSON database:
 
 ---
 
+## 📱 Touch & Swipe Controls
+
+The game automatically detects touch screens and scales to fit mobile screens in portrait mode (maximizing the game canvas at the top and placing retro gaming controls at the bottom):
+
+* **On-Screen Gamepad**:
+  * ◀ / ▶: Move Left / Right.
+  * ▲: Jump UP / Climb up platforms.
+  * ▼: Drop DOWN through platforms.
+* **Swipe Gestures** (swipe anywhere on the game canvas):
+  * **Swipe Left / Right**: Run left or right.
+  * **Swipe Up**: Jump.
+  * **Swipe Down**: Drop through platforms.
+  * **Tap Canvas**: Stop running.
+
+---
+
 ## 🌐 Deploying to the Web
 
 Since this project consists of a simple HTML5/JS frontend and a lightweight Express backend, it can be deployed to several free hosting services:
