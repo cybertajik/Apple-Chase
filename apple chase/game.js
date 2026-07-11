@@ -1188,7 +1188,7 @@ function update() {
         });
         
         plane.dropsLeft--;
-        plane.dropTimer = 30 + Math.random() * 40;
+        plane.dropTimer = 15 + Math.random() * 20;
       }
     }
 
@@ -1204,7 +1204,7 @@ function spawnPlane() {
     y: 50,
     vx: 3,
     dropsLeft: 7, // 6 apples + 1 heart
-    dropTimer: 0
+    dropTimer: 40
   });
 }
 
