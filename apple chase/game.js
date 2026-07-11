@@ -1209,7 +1209,7 @@ function spawnPlane() {
 }
 
 function triggerEasterEgg() {
-  easterEggTimer = 15 * 60; // 15 seconds
+  easterEggTimer = 20 * 60; // 20 seconds
   lives += 2;
   updateHUD();
   spawnFloatingText(player.x, player.y - 40, "+2 LIVES!", '#00f2fe');
@@ -1401,7 +1401,7 @@ function draw() {
   // Easter Egg background text
   if (easterEggTimer > 0) {
     ctx.save();
-    ctx.font = 'bold 24px "Press Start 2P", monospace';
+    ctx.font = '900 24px "Press Start 2P", monospace'; // Extra bold
     ctx.textAlign = 'center';
     
     const hue = (gameTime * 2) % 360;
@@ -1411,7 +1411,12 @@ function draw() {
     ctx.shadowOffsetX = 3;
     ctx.shadowOffsetY = 3;
     
-    ctx.fillText("Created by Amir Odinaev & Papa", CANVAS_WIDTH / 2, 100);
+    // Add a stroke to make the pixel font visually bolder
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = `hsl(${hue}, 100%, 60%)`;
+    
+    ctx.fillText("Created by Amir Odinaev & Papa", CANVAS_WIDTH / 2, 230); // Lowered to floor 3
+    ctx.strokeText("Created by Amir Odinaev & Papa", CANVAS_WIDTH / 2, 230);
     ctx.restore();
   }
 
