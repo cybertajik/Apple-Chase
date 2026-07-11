@@ -1788,16 +1788,23 @@ function draw() {
 
   if (planes && planes.length > 0) {
     planes.forEach(plane => {
+      ctx.save();
+      // Translate to the center of the plane for flipping
+      ctx.translate(plane.x + 40, plane.y + 20);
+      // Flip horizontally so the plane (which faces left originally) faces right
+      ctx.scale(-1, 1);
+      
       if (assets.plane && assets.plane.complete && assets.plane.naturalWidth !== 0) {
-        ctx.drawImage(assets.plane, plane.x, plane.y, 80, 40);
+        ctx.drawImage(assets.plane, -40, -20, 80, 40);
       } else {
         ctx.fillStyle = '#eeeeee';
-        ctx.fillRect(plane.x, plane.y, 60, 20);
+        ctx.fillRect(-40, -20, 60, 20);
         ctx.fillStyle = '#cccccc';
-        ctx.fillRect(plane.x + 20, plane.y - 10, 10, 30);
+        ctx.fillRect(-20, -30, 10, 30);
         ctx.fillStyle = '#ff0000';
-        ctx.fillRect(plane.x + 50, plane.y + 5, 10, 10);
+        ctx.fillRect(10, -15, 10, 10);
       }
+      ctx.restore();
     });
   }
 
