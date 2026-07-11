@@ -31,6 +31,8 @@ let audioCtx = null;
 let isMuted = false;
 let screenShake = 0;
 let bgScrollOffset = 0;
+let dogFreezeTimer = 0;        // frames dogs remain frozen (rainbow apple)
+let shrinkSpeedMult = 1.0;     // platform shrink speed multiplier (golden apple slows it)
 
 // Game Entities
 let player;
@@ -43,6 +45,14 @@ let floatingTexts = [];
 let particles = [];
 let gameTime = 0;
 
+// New state variables for Easter Egg & Plane
+let goldApplesCollected = 0;
+let consecutiveJumps = 0;
+let easterEggTimer = 0;
+let fireworks = [];
+let planes = [];
+let nextPlaneAppleTarget = 30;
+
 // Asset Loading
 const assets = {
   background: new Image(),
@@ -52,7 +62,9 @@ const assets = {
   dog_idle: new Image(),
   apple_tree: new Image(),
   apple: new Image(),
-  apple_gold: new Image()
+  apple_gold: new Image(),
+  apple_rainbow: new Image(),
+  plane: new Image()
 };
 
 const assetPaths = {
@@ -63,7 +75,9 @@ const assetPaths = {
   dog_idle: 'assets/dog_idle.png',
   apple_tree: 'assets/apple_tree.png',
   apple: 'assets/apple.png',
-  apple_gold: 'assets/apple_gold.png'
+  apple_gold: 'assets/apple_gold.png',
+  apple_rainbow: 'assets/apple_rainbow.png',
+  plane: 'assets/plane.png'
 };
 
 // Background Music
@@ -100,7 +114,7 @@ function initPlatforms() {
     { x: 0, y: 550, width: CANVAS_WIDTH, height: 50, id: 0 },
     // Floor 1 (Split in the middle: Left is 50-350, Right is 450-750)
     { x: 50, y: 450, width: 300, height: 20, id: 1 },
-    { x: 450, y: 450, width: 300, height: 20, id: 1 },
+    { x: 450, y: 450, width: 300, height: 20, id: 1, shrinkable: true, origX: 450, origWidth: 300, shrinkTimer: 0 },
     // Floor 2
     { x: 50, y: 350, width: 700, height: 20, id: 2 },
     // Floor 3 (Top Floor)
@@ -582,10 +596,15 @@ function setupEventListeners() {
     }
   });
 
-  // Mute Button listener
+  // Mute Button listener - toggles both SFX and background music
   document.getElementById('btn-mute').addEventListener('click', () => {
     isMuted = !isMuted;
     document.getElementById('btn-mute').innerText = isMuted ? '🔇' : '🔊';
+    if (isMuted) {
+      bgMusic.pause();
+    } else if (gameState === 'playing') {
+      bgMusic.play().catch(e => console.log("BGM play blocked:", e));
+    }
     initAudio();
   });
 }
@@ -653,6 +672,15 @@ function startGame() {
   particles = [];
   floatingTexts = [];
   gameTime = 0;
+  dogFreezeTimer = 0;
+  shrinkSpeedMult = 1.0;
+  
+  goldApplesCollected = 0;
+  consecutiveJumps = 0;
+  easterEggTimer = 0;
+  fireworks = [];
+  planes = [];
+  nextPlaneAppleTarget = 30;
   
   updateHUD();
   initPlatforms();
@@ -758,6 +786,25 @@ function update() {
     player.squashX = 0.7; // jump squash
     player.squashY = 1.3;
     playSound('jump');
+    
+    // Easter Egg Jump Tracking
+    if (player.currentFloor === 3 && player.x > 600) {
+      consecutiveJumps++;
+      if (consecutiveJumps >= 3 && goldApplesCollected >= 3 && easterEggTimer <= 0) {
+        triggerEasterEgg();
+        consecutiveJumps = 0; // reset after triggering
+      }
+    } else {
+      consecutiveJumps = 1; // Not at the right edge, start over
+    }
+  }
+
+  // Reset consecutive jumps if moving left or off floor 3
+  if (player.state === 'running' && player.vx < 0) {
+    consecutiveJumps = 0;
+  }
+  if (player.currentFloor !== 3) {
+    consecutiveJumps = 0;
   }
 
   // Apply Gravity
@@ -812,6 +859,42 @@ function update() {
 
   // Save key states for triggers
   previousKeys = { ...keys };
+
+  // 1b. UPDATE SHRINKABLE PLATFORM
+  // Accumulated timer: 100 seconds total (6000 frames at 60fps) of standing to fully collapse
+  // Shrink rate is multiplied by shrinkSpeedMult (golden apple makes it 1.5x slower)
+  const SHRINK_TOTAL_FRAMES = 6000;
+  platforms.forEach(platform => {
+    if (!platform.shrinkable) return;
+    const onPlatform = player.isGrounded &&
+      player.currentFloor === 1 &&
+      player.x + player.width > platform.x &&
+      player.x < platform.x + platform.width;
+    if (onPlatform && platform.origWidth > 0 && platform.width > 0) {
+      // Accumulate fractional frames, shrinkSpeedMult < 1 = slower shrink
+      platform.shrinkTimer += shrinkSpeedMult;
+      // Recompute width/x from accumulated timer
+      const shrinkAmt = platform.origWidth / SHRINK_TOTAL_FRAMES;
+      platform.x = Math.min(platform.origX + platform.origWidth, platform.origX + (platform.shrinkTimer * shrinkAmt));
+      platform.width = Math.max(0, platform.origWidth - (platform.shrinkTimer * shrinkAmt));
+      // Warning flicker at halfway
+      if (Math.floor(platform.shrinkTimer) === Math.floor(SHRINK_TOTAL_FRAMES / 2)) {
+        spawnFloatingText(platform.origX + platform.origWidth / 2, platform.y - 20, '⚠️ CRUMBLING!', '#fffb00');
+      }
+      // Platform fully gone
+      if (platform.width <= 0) {
+        platform.width = 0;
+        if (player.isGrounded && player.currentFloor === 1) {
+          player.isGrounded = false;
+        }
+      }
+    }
+  });
+
+  // Decay shrinkSpeedMult back to 1.0 over time (golden apple effect wears off after ~10 secs)
+  if (shrinkSpeedMult < 1.0) {
+    shrinkSpeedMult = Math.min(1.0, shrinkSpeedMult + 1 / 600);
+  }
 
   // 2. UPDATE APPLE TREES
   trees.forEach(tree => {
@@ -897,11 +980,22 @@ function update() {
     const playerRect = { x: player.x, y: player.y, width: player.width, height: player.height };
     if (checkCollision(playerRect, appleRect)) {
       // Collect!
-      if (apple.type === 'golden') {
+      if (apple.type === 'rainbow') {
+        score += 50;
+        applesCollected++;
+        // Freeze all dogs for 6 seconds (360 frames)
+        dogFreezeTimer = 360;
+        spawnParticle(apple.x + 10, apple.y + 10, '#ff00ff', 20);
+        spawnFloatingText(apple.x - 20, apple.y - 10, "🌈 FREEZE! +50", '#ff77ff');
+        playSound('gold');
+      } else if (apple.type === 'golden') {
         score += apple.scoreValue;
         applesCollected++;
+        goldApplesCollected++;
         spawnParticle(apple.x + 10, apple.y + 10, '#fffb00', 12);
         spawnFloatingText(apple.x - 15, apple.y - 10, "+30 GOLD!", '#fffb00');
+        // Slow platform shrink: current rate * (1/1.5) = 0.667x for 10 seconds
+        shrinkSpeedMult = Math.min(shrinkSpeedMult, 1.0 / 1.5);
         playSound('gold');
       } else if (apple.type === 'rotten') {
         score = Math.max(0, score + apple.scoreValue);
@@ -918,15 +1012,26 @@ function update() {
       }
       
       // Level Up check
-      if (applesCollected > 0 && applesCollected % LEVEL_UP_APPLES === 0 && apple.type !== 'rotten') {
+      if (applesCollected > 0 && applesCollected % LEVEL_UP_APPLES === 0 && apple.type !== 'rotten' && apple.type !== 'heart') {
         level++;
         spawnFloatingText(player.x, player.y - 30, `LEVEL ${level}!`, '#00f2fe');
         spawnParticle(player.x + 20, player.y + 20, '#00f2fe', 12);
         playSound('levelup');
       }
 
-      // 50 apples gives you one life!
-      if (applesCollected > 0 && applesCollected % 50 === 0 && apple.type !== 'rotten') {
+      // Airplane flyover check
+      if (applesCollected >= nextPlaneAppleTarget && nextPlaneAppleTarget <= 90 && apple.type !== 'rotten' && apple.type !== 'heart') {
+        spawnPlane();
+        nextPlaneAppleTarget += 10;
+      }
+
+      // 50 apples gives you one life! (Ignored if airplane spawns)
+      if (applesCollected > 0 && applesCollected % 50 === 0 && apple.type !== 'rotten' && apple.type !== 'heart') {
+        lives++;
+        spawnFloatingText(player.x, player.y - 45, "+1 LIFE!", '#ff007f');
+        spawnParticle(player.x + 20, player.y + 20, '#ff007f', 15);
+        playSound('levelup');
+      } else if (apple.type === 'heart') {
         lives++;
         spawnFloatingText(player.x, player.y - 45, "+1 LIFE!", '#ff007f');
         spawnParticle(player.x + 20, player.y + 20, '#ff007f', 15);
@@ -979,7 +1084,19 @@ function update() {
   }
 
   // 4. UPDATE DOGS
+  // Tick down freeze timer
+  if (dogFreezeTimer > 0) {
+    dogFreezeTimer--;
+    // Show freeze effect every 60 frames while active
+    if (dogFreezeTimer % 60 === 0 && dogFreezeTimer > 0) {
+      dogs.forEach(dog => spawnParticle(dog.x + dog.width/2, dog.y, '#aaddff', 4));
+    }
+  }
+
   dogs.forEach(dog => {
+    // Skip movement while frozen by rainbow apple
+    if (dogFreezeTimer > 0) return;
+
     // Current actual speed (scales up by 0.45 per level)
     const currentSpeed = dog.speed + (level - 1) * 0.45;
     dog.x += currentSpeed * dog.dir;
@@ -1021,6 +1138,101 @@ function update() {
       floatingTexts.splice(idx, 1);
     }
   });
+
+  // 6. UPDATE EASTER EGG & AIRPLANE
+  if (easterEggTimer > 0) {
+    easterEggTimer--;
+    if (Math.random() < 0.05) {
+      spawnFirework(Math.random() * CANVAS_WIDTH, Math.random() * (CANVAS_HEIGHT / 2));
+    }
+  }
+
+  fireworks.forEach((fw, idx) => {
+    fw.life--;
+    if (fw.life <= 0) {
+      fireworks.splice(idx, 1);
+    } else {
+      fw.particles.forEach(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.05; // gravity
+        p.alpha *= 0.95;
+      });
+    }
+  });
+
+  planes.forEach((plane, idx) => {
+    plane.x += plane.vx;
+    
+    if (plane.dropsLeft > 0) {
+      plane.dropTimer--;
+      if (plane.dropTimer <= 0) {
+        const targetFloor = platforms[Math.floor(Math.random() * platforms.length)];
+        let type = plane.dropsLeft === 1 ? 'heart' : 'normal';
+        
+        apples.push({
+          x: plane.x + 40,
+          y: plane.y + 20,
+          vy: 0,
+          vx: (Math.random() - 0.5) * 2, // scatter horizontally
+          width: 24,
+          height: 24,
+          floorY: targetFloor.y,
+          bounceCount: 2,
+          isGrounded: false,
+          lifetime: 600,
+          maxLifetime: 600,
+          type: type,
+          color: type === 'heart' ? '#ff0000' : '#e63946',
+          scoreValue: type === 'heart' ? 0 : 10
+        });
+        
+        plane.dropsLeft--;
+        plane.dropTimer = 30 + Math.random() * 40;
+      }
+    }
+
+    if (plane.x > CANVAS_WIDTH + 100) {
+      planes.splice(idx, 1);
+    }
+  });
+}
+
+function spawnPlane() {
+  planes.push({
+    x: -100,
+    y: 50,
+    vx: 3,
+    dropsLeft: 7, // 6 apples + 1 heart
+    dropTimer: 0
+  });
+}
+
+function triggerEasterEgg() {
+  easterEggTimer = 15 * 60; // 15 seconds
+  lives += 2;
+  updateHUD();
+  spawnFloatingText(player.x, player.y - 40, "+2 LIVES!", '#00f2fe');
+  playSound('levelup');
+}
+
+function spawnFirework(x, y) {
+  const fw = { life: 60, particles: [] };
+  const numParticles = 20 + Math.random() * 20;
+  const color = `hsl(${Math.random() * 360}, 100%, 60%)`;
+  for (let i = 0; i < numParticles; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = Math.random() * 4;
+    fw.particles.push({
+      x: x,
+      y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      color: color,
+      alpha: 1
+    });
+  }
+  fireworks.push(fw);
 }
 
 function spawnApple(x, y, floorY) {
@@ -1030,11 +1242,16 @@ function spawnApple(x, y, floorY) {
   let color = '#e63946'; // red
   let scoreValue = 10;
   
-  if (rand < 0.1) {
+  if (rand < 0.02) {
+    // 2% chance: very rare rainbow apple
+    type = 'rainbow';
+    color = '#ff77ff';
+    scoreValue = 50;
+  } else if (rand < 0.12) {
     type = 'golden';
     color = varColorHex('--neon-yellow'); // gold
     scoreValue = 30;
-  } else if (rand < 0.2) {
+  } else if (rand < 0.22) {
     type = 'rotten';
     color = '#8a2be2'; // purple/toxic
     scoreValue = -15; // penalty
@@ -1181,32 +1398,74 @@ function draw() {
   drawCloud(c2x, 60);
   drawCloud(c3x, 110);
 
+  // Easter Egg background text
+  if (easterEggTimer > 0) {
+    ctx.save();
+    ctx.font = 'bold 24px "Press Start 2P", monospace';
+    ctx.textAlign = 'center';
+    
+    const hue = (gameTime * 2) % 360;
+    ctx.fillStyle = `hsl(${hue}, 100%, 60%)`;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetX = 3;
+    ctx.shadowOffsetY = 3;
+    
+    ctx.fillText("Created by Amir Odinaev & Papa", CANVAS_WIDTH / 2, 100);
+    ctx.restore();
+  }
+
   // 2. DRAW PLATFORMS
   if (platforms && platforms.length > 0) {
     platforms.forEach(platform => {
-      // Dirt base (Brown '#8d5b4c')
-      ctx.fillStyle = '#8d5b4c';
-      ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+      if (platform.shrinkable) {
+        if (platform.width <= 0) return; // fully gone, don't draw
+        // Calculate how much has crumbled (0 = fresh, 1 = almost gone)
+        const crumblePct = 1 - (platform.width / platform.origWidth);
+        // Tint toward red/orange as it crumbles
+        const r = Math.round(141 + crumblePct * 114); // 141 -> 255
+        const g = Math.round(91 - crumblePct * 91);   // 91 -> 0
+        const b = Math.round(76 - crumblePct * 76);   // 76 -> 0
+        ctx.fillStyle = `rgb(${r},${g},${b})`;
+        ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+        // Crack lines on the crumbling section
+        ctx.strokeStyle = `rgba(0,0,0,${0.3 + crumblePct * 0.5})`;
+        ctx.lineWidth = 1;
+        for (let cx = platform.x + 15; cx < platform.x + platform.width; cx += 25) {
+          ctx.beginPath();
+          ctx.moveTo(cx, platform.y);
+          ctx.lineTo(cx + 5, platform.y + platform.height / 2);
+          ctx.lineTo(cx - 3, platform.y + platform.height);
+          ctx.stroke();
+        }
+        // Grass top (fades orange as crumbling)
+        ctx.fillStyle = crumblePct < 0.5 ? '#7cd322' : `rgba(${r}, ${Math.round(180 - crumblePct * 180)}, 0, 1)`;
+        ctx.fillRect(platform.x, platform.y, platform.width, 8);
+      } else {
+        // Dirt base (Brown '#8d5b4c')
+        ctx.fillStyle = '#8d5b4c';
+        ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
 
-      // Dirt pixel speckles (Dark Brown '#5a382f')
-      ctx.fillStyle = '#5a382f';
-      const pixelSize = 4;
-      for (let px = platform.x + 8; px < platform.x + platform.width - 8; px += 32) {
-        let offset1 = (px % 7) * 4;
-        let offset2 = (px % 5) * 6;
-        ctx.fillRect(px + offset1, platform.y + 10 + (px % 3) * 4, pixelSize, pixelSize);
-        ctx.fillRect(px + offset2, platform.y + 12 + (px % 4) * 2, pixelSize, pixelSize);
-      }
+        // Dirt pixel speckles (Dark Brown '#5a382f')
+        ctx.fillStyle = '#5a382f';
+        const pixelSize = 4;
+        for (let px = platform.x + 8; px < platform.x + platform.width - 8; px += 32) {
+          let offset1 = (px % 7) * 4;
+          let offset2 = (px % 5) * 6;
+          ctx.fillRect(px + offset1, platform.y + 10 + (px % 3) * 4, pixelSize, pixelSize);
+          ctx.fillRect(px + offset2, platform.y + 12 + (px % 4) * 2, pixelSize, pixelSize);
+        }
 
-      // Grass top (Light Green '#7cd322')
-      ctx.fillStyle = '#7cd322';
-      ctx.fillRect(platform.x, platform.y, platform.width, 8);
+        // Grass top (Light Green '#7cd322')
+        ctx.fillStyle = '#7cd322';
+        ctx.fillRect(platform.x, platform.y, platform.width, 8);
 
-      // Darker green jagged lower border for grass ('#58a618')
-      ctx.fillStyle = '#58a618';
-      for (let gx = platform.x; gx < platform.x + platform.width; gx += 8) {
-        if ((gx / 8) % 2 === 0) {
-          ctx.fillRect(gx, platform.y + 8, 8, 4);
+        // Darker green jagged lower border for grass ('#58a618')
+        ctx.fillStyle = '#58a618';
+        for (let gx = platform.x; gx < platform.x + platform.width; gx += 8) {
+          if ((gx / 8) % 2 === 0) {
+            ctx.fillRect(gx, platform.y + 8, 8, 4);
+          }
         }
       }
     });
@@ -1258,6 +1517,12 @@ function draw() {
         ctx.scale(-1, 1);
       }
 
+      // Ice-blue glow while frozen by rainbow apple
+      if (dogFreezeTimer > 0) {
+        ctx.shadowColor = '#aaddff';
+        ctx.shadowBlur = 14;
+        ctx.filter = 'hue-rotate(180deg) saturate(0.5) brightness(1.4)';
+      }
       // Walking wobble animation
       const dogWobble = Math.sin(gameTime * 0.25) * 0.08;
       ctx.rotate(dogWobble);
@@ -1301,7 +1566,13 @@ function draw() {
       }
 
       // Special visual effects for special apples
-      if (apple.type === 'golden') {
+      if (apple.type === 'rainbow') {
+        // Spinning prismatic hue-rotate + pulsing glow
+        const hue = (gameTime * 4) % 360;
+        ctx.shadowColor = `hsl(${hue}, 100%, 60%)`;
+        ctx.shadowBlur = 16;
+        ctx.filter = `hue-rotate(${hue}deg) saturate(2.5) brightness(1.3)`;
+      } else if (apple.type === 'golden') {
         ctx.shadowColor = '#fffb00';
         ctx.shadowBlur = 10;
         if (!assets.apple_gold.complete || assets.apple_gold.naturalWidth === 0) {
@@ -1313,9 +1584,24 @@ function draw() {
         ctx.filter = 'hue-rotate(270deg) saturate(1.5) brightness(0.7)';
       }
 
-      if (apple.type === 'golden' && assets.apple_gold.complete && assets.apple_gold.naturalWidth !== 0) {
+      if (apple.type === 'rainbow' && assets.apple_rainbow.complete && assets.apple_rainbow.naturalWidth !== 0) {
+        ctx.drawImage(assets.apple_rainbow, -apple.width/2, -apple.width/2, apple.width, apple.height);
+      } else if (apple.type === 'golden' && assets.apple_gold.complete && assets.apple_gold.naturalWidth !== 0) {
         ctx.drawImage(assets.apple_gold, -apple.width/2, -apple.width/2, apple.width, apple.height);
-      } else if (assets.apple.complete && assets.apple.naturalWidth !== 0) {
+      } else if (apple.type === 'heart') {
+        // Procedural heart
+        ctx.fillStyle = '#ff0000';
+        ctx.shadowColor = '#ff0000';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        let topCurveHeight = apple.height * 0.3;
+        ctx.moveTo(0, topCurveHeight);
+        ctx.bezierCurveTo(0, 0, -apple.width/2, 0, -apple.width/2, topCurveHeight);
+        ctx.bezierCurveTo(-apple.width/2, apple.height/2, 0, apple.height*0.8, 0, apple.height);
+        ctx.bezierCurveTo(0, apple.height*0.8, apple.width/2, apple.height/2, apple.width/2, topCurveHeight);
+        ctx.bezierCurveTo(apple.width/2, 0, 0, 0, 0, topCurveHeight);
+        ctx.fill();
+      } else if (apple.type !== 'rainbow' && apple.type !== 'heart' && assets.apple.complete && assets.apple.naturalWidth !== 0) {
         ctx.drawImage(assets.apple, -apple.width/2, -apple.width/2, apple.width, apple.height);
       } else {
         // Procedural apple
@@ -1384,10 +1670,13 @@ function draw() {
   // 6. DRAW PLAYER (Hedgehog)
   if (player && (player.invulnTimer === 0 || Math.floor(player.invulnTimer / 6) % 2 === 0)) {
     ctx.save();
-    
-    // Constant blue neon glow shadow (intensifies when running)
-    ctx.shadowColor = '#00f2fe';
-    ctx.shadowBlur = (player.state === 'running') ? 18 : 10;
+
+    // 🌈 Rainbow glow while dog-freeze power-up is active
+    if (dogFreezeTimer > 0) {
+      const rainbowHue = (gameTime * 6) % 360;
+      ctx.shadowColor = `hsl(${rainbowHue}, 100%, 60%)`;
+      ctx.shadowBlur = 20;
+    }
 
     // Center matrix at player center for squash and stretch
     ctx.translate(player.x + player.width/2, player.y + player.height/2);
@@ -1410,13 +1699,19 @@ function draw() {
     }
 
     let pImg = assets.hedgehog_idle;
+    let drawW = player.width;
+    let drawH = player.height;
+
     if (player.state === 'running') {
       // Cycle run frames based on game time
       pImg = Math.floor(gameTime / 8) % 2 === 0 ? assets.hedgehog_run : assets.hedgehog_idle;
+    } else if (player.state === 'idle') {
+      // Idle: make hedgehog slightly taller (same as jump stretch)
+      drawH = player.height * 1.15;
     }
 
     if (pImg.complete && pImg.naturalWidth !== 0) {
-      ctx.drawImage(pImg, -player.width/2, -player.height/2, player.width, player.height);
+      ctx.drawImage(pImg, -drawW/2, -drawH/2, drawW, drawH);
     } else {
       // Procedural hedgehog (facing left by default)
       ctx.fillStyle = '#8b5a2b';
@@ -1473,6 +1768,36 @@ function draw() {
       ctx.shadowBlur = 4;
       ctx.fillText(t.text, t.x, t.y);
       ctx.restore();
+    });
+  }
+
+  // 8b. DRAW FIREWORKS & PLANES
+  if (fireworks && fireworks.length > 0) {
+    fireworks.forEach(fw => {
+      fw.particles.forEach(p => {
+        ctx.save();
+        ctx.globalAlpha = p.alpha;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 2.5, 0, Math.PI*2);
+        ctx.fill();
+        ctx.restore();
+      });
+    });
+  }
+
+  if (planes && planes.length > 0) {
+    planes.forEach(plane => {
+      if (assets.plane && assets.plane.complete && assets.plane.naturalWidth !== 0) {
+        ctx.drawImage(assets.plane, plane.x, plane.y, 80, 40);
+      } else {
+        ctx.fillStyle = '#eeeeee';
+        ctx.fillRect(plane.x, plane.y, 60, 20);
+        ctx.fillStyle = '#cccccc';
+        ctx.fillRect(plane.x + 20, plane.y - 10, 10, 30);
+        ctx.fillStyle = '#ff0000';
+        ctx.fillRect(plane.x + 50, plane.y + 5, 10, 10);
+      }
     });
   }
 
