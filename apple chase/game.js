@@ -485,7 +485,6 @@ function setupEventListeners() {
   setupTouchButton('ctrl-left', 'ArrowLeft');
   setupTouchButton('ctrl-right', 'ArrowRight');
   setupTouchButton('ctrl-up', 'ArrowUp');
-  setupTouchButton('ctrl-down', 'ArrowDown');
 
   // Detect touch support and show on-screen buttons
   const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
