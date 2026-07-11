@@ -45,6 +45,14 @@ let floatingTexts = [];
 let particles = [];
 let gameTime = 0;
 
+// New state variables for Easter Egg & Plane
+let goldApplesCollected = 0;
+let consecutiveJumps = 0;
+let easterEggTimer = 0;
+let fireworks = [];
+let planes = [];
+let nextPlaneAppleTarget = 30;
+
 // Asset Loading
 const assets = {
   background: new Image(),
@@ -55,7 +63,8 @@ const assets = {
   apple_tree: new Image(),
   apple: new Image(),
   apple_gold: new Image(),
-  apple_rainbow: new Image()
+  apple_rainbow: new Image(),
+  plane: new Image()
 };
 
 const assetPaths = {
@@ -67,7 +76,8 @@ const assetPaths = {
   apple_tree: 'assets/apple_tree.png',
   apple: 'assets/apple.png',
   apple_gold: 'assets/apple_gold.png',
-  apple_rainbow: 'assets/apple_rainbow.png'
+  apple_rainbow: 'assets/apple_rainbow.png',
+  plane: 'assets/plane.png'
 };
 
 // Background Music
@@ -665,6 +675,13 @@ function startGame() {
   dogFreezeTimer = 0;
   shrinkSpeedMult = 1.0;
   
+  goldApplesCollected = 0;
+  consecutiveJumps = 0;
+  easterEggTimer = 0;
+  fireworks = [];
+  planes = [];
+  nextPlaneAppleTarget = 30;
+  
   updateHUD();
   initPlatforms();
   initTrees();
@@ -769,6 +786,25 @@ function update() {
     player.squashX = 0.7; // jump squash
     player.squashY = 1.3;
     playSound('jump');
+    
+    // Easter Egg Jump Tracking
+    if (player.currentFloor === 3 && player.x > 600) {
+      consecutiveJumps++;
+      if (consecutiveJumps >= 3 && goldApplesCollected >= 3 && easterEggTimer <= 0) {
+        triggerEasterEgg();
+        consecutiveJumps = 0; // reset after triggering
+      }
+    } else {
+      consecutiveJumps = 1; // Not at the right edge, start over
+    }
+  }
+
+  // Reset consecutive jumps if moving left or off floor 3
+  if (player.state === 'running' && player.vx < 0) {
+    consecutiveJumps = 0;
+  }
+  if (player.currentFloor !== 3) {
+    consecutiveJumps = 0;
   }
 
   // Apply Gravity
@@ -955,6 +991,7 @@ function update() {
       } else if (apple.type === 'golden') {
         score += apple.scoreValue;
         applesCollected++;
+        goldApplesCollected++;
         spawnParticle(apple.x + 10, apple.y + 10, '#fffb00', 12);
         spawnFloatingText(apple.x - 15, apple.y - 10, "+30 GOLD!", '#fffb00');
         // Slow platform shrink: current rate * (1/1.5) = 0.667x for 10 seconds
@@ -975,15 +1012,26 @@ function update() {
       }
       
       // Level Up check
-      if (applesCollected > 0 && applesCollected % LEVEL_UP_APPLES === 0 && apple.type !== 'rotten') {
+      if (applesCollected > 0 && applesCollected % LEVEL_UP_APPLES === 0 && apple.type !== 'rotten' && apple.type !== 'heart') {
         level++;
         spawnFloatingText(player.x, player.y - 30, `LEVEL ${level}!`, '#00f2fe');
         spawnParticle(player.x + 20, player.y + 20, '#00f2fe', 12);
         playSound('levelup');
       }
 
-      // 50 apples gives you one life!
-      if (applesCollected > 0 && applesCollected % 50 === 0 && apple.type !== 'rotten') {
+      // Airplane flyover check
+      if (applesCollected >= nextPlaneAppleTarget && nextPlaneAppleTarget <= 90 && apple.type !== 'rotten' && apple.type !== 'heart') {
+        spawnPlane();
+        nextPlaneAppleTarget += 10;
+      }
+
+      // 50 apples gives you one life! (Ignored if airplane spawns)
+      if (applesCollected > 0 && applesCollected % 50 === 0 && apple.type !== 'rotten' && apple.type !== 'heart') {
+        lives++;
+        spawnFloatingText(player.x, player.y - 45, "+1 LIFE!", '#ff007f');
+        spawnParticle(player.x + 20, player.y + 20, '#ff007f', 15);
+        playSound('levelup');
+      } else if (apple.type === 'heart') {
         lives++;
         spawnFloatingText(player.x, player.y - 45, "+1 LIFE!", '#ff007f');
         spawnParticle(player.x + 20, player.y + 20, '#ff007f', 15);
@@ -1090,6 +1138,101 @@ function update() {
       floatingTexts.splice(idx, 1);
     }
   });
+
+  // 6. UPDATE EASTER EGG & AIRPLANE
+  if (easterEggTimer > 0) {
+    easterEggTimer--;
+    if (Math.random() < 0.05) {
+      spawnFirework(Math.random() * CANVAS_WIDTH, Math.random() * (CANVAS_HEIGHT / 2));
+    }
+  }
+
+  fireworks.forEach((fw, idx) => {
+    fw.life--;
+    if (fw.life <= 0) {
+      fireworks.splice(idx, 1);
+    } else {
+      fw.particles.forEach(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.05; // gravity
+        p.alpha *= 0.95;
+      });
+    }
+  });
+
+  planes.forEach((plane, idx) => {
+    plane.x += plane.vx;
+    
+    if (plane.dropsLeft > 0) {
+      plane.dropTimer--;
+      if (plane.dropTimer <= 0) {
+        const targetFloor = platforms[Math.floor(Math.random() * platforms.length)];
+        let type = plane.dropsLeft === 1 ? 'heart' : 'normal';
+        
+        apples.push({
+          x: plane.x + 40,
+          y: plane.y + 20,
+          vy: 0,
+          vx: (Math.random() - 0.5) * 2, // scatter horizontally
+          width: 24,
+          height: 24,
+          floorY: targetFloor.y,
+          bounceCount: 2,
+          isGrounded: false,
+          lifetime: 600,
+          maxLifetime: 600,
+          type: type,
+          color: type === 'heart' ? '#ff0000' : '#e63946',
+          scoreValue: type === 'heart' ? 0 : 10
+        });
+        
+        plane.dropsLeft--;
+        plane.dropTimer = 15 + Math.random() * 20;
+      }
+    }
+
+    if (plane.x > CANVAS_WIDTH + 100) {
+      planes.splice(idx, 1);
+    }
+  });
+}
+
+function spawnPlane() {
+  planes.push({
+    x: -100,
+    y: 50,
+    vx: 3,
+    dropsLeft: 7, // 6 apples + 1 heart
+    dropTimer: 40
+  });
+}
+
+function triggerEasterEgg() {
+  easterEggTimer = 15 * 60; // 15 seconds
+  lives += 2;
+  updateHUD();
+  spawnFloatingText(player.x, player.y - 40, "+2 LIVES!", '#00f2fe');
+  playSound('levelup');
+}
+
+function spawnFirework(x, y) {
+  const fw = { life: 60, particles: [] };
+  const numParticles = 20 + Math.random() * 20;
+  const color = `hsl(${Math.random() * 360}, 100%, 60%)`;
+  for (let i = 0; i < numParticles; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = Math.random() * 4;
+    fw.particles.push({
+      x: x,
+      y: y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      color: color,
+      alpha: 1
+    });
+  }
+  fireworks.push(fw);
 }
 
 function spawnApple(x, y, floorY) {
@@ -1254,6 +1397,23 @@ function draw() {
   drawCloud(c1x, 80);
   drawCloud(c2x, 60);
   drawCloud(c3x, 110);
+
+  // Easter Egg background text
+  if (easterEggTimer > 0) {
+    ctx.save();
+    ctx.font = 'bold 24px "Press Start 2P", monospace';
+    ctx.textAlign = 'center';
+    
+    const hue = (gameTime * 2) % 360;
+    ctx.fillStyle = `hsl(${hue}, 100%, 60%)`;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetX = 3;
+    ctx.shadowOffsetY = 3;
+    
+    ctx.fillText("Created by Amir Odinaev & Papa", CANVAS_WIDTH / 2, 100);
+    ctx.restore();
+  }
 
   // 2. DRAW PLATFORMS
   if (platforms && platforms.length > 0) {
@@ -1428,7 +1588,20 @@ function draw() {
         ctx.drawImage(assets.apple_rainbow, -apple.width/2, -apple.width/2, apple.width, apple.height);
       } else if (apple.type === 'golden' && assets.apple_gold.complete && assets.apple_gold.naturalWidth !== 0) {
         ctx.drawImage(assets.apple_gold, -apple.width/2, -apple.width/2, apple.width, apple.height);
-      } else if (apple.type !== 'rainbow' && assets.apple.complete && assets.apple.naturalWidth !== 0) {
+      } else if (apple.type === 'heart') {
+        // Procedural heart
+        ctx.fillStyle = '#ff0000';
+        ctx.shadowColor = '#ff0000';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        let topCurveHeight = apple.height * 0.3;
+        ctx.moveTo(0, topCurveHeight);
+        ctx.bezierCurveTo(0, 0, -apple.width/2, 0, -apple.width/2, topCurveHeight);
+        ctx.bezierCurveTo(-apple.width/2, apple.height/2, 0, apple.height*0.8, 0, apple.height);
+        ctx.bezierCurveTo(0, apple.height*0.8, apple.width/2, apple.height/2, apple.width/2, topCurveHeight);
+        ctx.bezierCurveTo(apple.width/2, 0, 0, 0, 0, topCurveHeight);
+        ctx.fill();
+      } else if (apple.type !== 'rainbow' && apple.type !== 'heart' && assets.apple.complete && assets.apple.naturalWidth !== 0) {
         ctx.drawImage(assets.apple, -apple.width/2, -apple.width/2, apple.width, apple.height);
       } else {
         // Procedural apple
@@ -1594,6 +1767,43 @@ function draw() {
       ctx.shadowColor = 'black';
       ctx.shadowBlur = 4;
       ctx.fillText(t.text, t.x, t.y);
+      ctx.restore();
+    });
+  }
+
+  // 8b. DRAW FIREWORKS & PLANES
+  if (fireworks && fireworks.length > 0) {
+    fireworks.forEach(fw => {
+      fw.particles.forEach(p => {
+        ctx.save();
+        ctx.globalAlpha = p.alpha;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 2.5, 0, Math.PI*2);
+        ctx.fill();
+        ctx.restore();
+      });
+    });
+  }
+
+  if (planes && planes.length > 0) {
+    planes.forEach(plane => {
+      ctx.save();
+      // Translate to the center of the plane for flipping
+      ctx.translate(plane.x + 40, plane.y + 20);
+      // Flip horizontally so the plane (which faces left originally) faces right
+      ctx.scale(-1, 1);
+      
+      if (assets.plane && assets.plane.complete && assets.plane.naturalWidth !== 0) {
+        ctx.drawImage(assets.plane, -40, -20, 80, 40);
+      } else {
+        ctx.fillStyle = '#eeeeee';
+        ctx.fillRect(-40, -20, 60, 20);
+        ctx.fillStyle = '#cccccc';
+        ctx.fillRect(-20, -30, 10, 30);
+        ctx.fillStyle = '#ff0000';
+        ctx.fillRect(10, -15, 10, 10);
+      }
       ctx.restore();
     });
   }
