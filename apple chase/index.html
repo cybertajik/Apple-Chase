@@ -52,11 +52,6 @@
           <div class="menu-actions">
             <button id="btn-start" class="btn btn-primary">START GAME</button>
             <button id="btn-how" class="btn btn-secondary">HOW TO PLAY</button>
-            <button id="btn-leaderboard" class="btn btn-secondary">LEADERBOARD</button>
-          </div>
-
-          <div class="quick-info">
-            <span class="network-status" id="network-status">Checking server connection...</span>
           </div>
         </div>
       </div>
@@ -89,48 +84,7 @@
         </div>
       </div>
 
-      <!-- SCREEN: Leaderboard -->
-      <div id="leaderboard-screen" class="overlay-screen hidden">
-        <div class="glass-panel large-panel">
-          <h2 class="screen-title">LEADERBOARD</h2>
-          <div class="leaderboard-container">
-            <div class="leaderboard-header">
-              <span>RANK</span>
-              <span>NAME</span>
-              <span>COUNTRY</span>
-              <span>SCORE</span>
-            </div>
-            <div id="leaderboard-list" class="leaderboard-list">
-              <!-- Dynamically populated -->
-              <div class="loading-spinner">Loading high scores...</div>
-            </div>
-          </div>
-          <button id="btn-leaderboard-back" class="btn btn-secondary">BACK</button>
-        </div>
-      </div>
 
-      <!-- SCREEN: Submit Score -->
-      <div id="submit-screen" class="overlay-screen hidden">
-        <div class="glass-panel">
-          <h2 class="screen-title neon-text">NEW HIGH SCORE!</h2>
-          <p class="final-score-text">You scored <span id="final-score-val" class="highlight">0</span> points!</p>
-          
-          <form id="submit-score-form">
-            <div class="form-group">
-              <label for="player-name">YOUR NAME</label>
-              <input type="text" id="player-name" required maxlength="12" placeholder="Hedgehog" autocomplete="off">
-            </div>
-            <div class="form-group">
-              <label for="player-country">COUNTRY (2-LETTER CODE)</label>
-              <input type="text" id="player-country" required maxlength="2" placeholder="US" pattern="[A-Za-z]{2}" title="Please enter a 2-letter country code (e.g. US, JP, DE)" style="text-transform: uppercase;">
-            </div>
-            <div class="menu-actions">
-              <button type="submit" class="btn btn-primary">SUBMIT SCORE</button>
-              <button type="button" id="btn-skip-submit" class="btn btn-secondary">SKIP</button>
-            </div>
-          </form>
-        </div>
-      </div>
 
       <!-- SCREEN: Game Over -->
       <div id="gameover-screen" class="overlay-screen hidden">

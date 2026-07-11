@@ -6,10 +6,7 @@ const PLAYER_SPEED = 4.5;
 const JUMP_FORCE = -11.5;
 const LEVEL_UP_APPLES = 5;
 
-// API URL (same origin as server, fallback to localhost:3000 if opened directly)
-const API_URL = window.location.origin.startsWith('http')
-  ? window.location.origin
-  : 'http://localhost:3000';
+
 
 // Canvas Setup
 const canvas = document.getElementById('gameCanvas');
@@ -23,8 +20,7 @@ let applesCollected = 0;
 let lives = 3;
 let keys = {};
 let previousKeys = {};
-let isOnline = false;
-let highScores = [];
+
 
 // Audio & Screen Juice State
 let audioCtx = null;
@@ -173,91 +169,7 @@ function initPlayer() {
   };
 }
 
-// Try checking network status & loading leaderboard
-async function checkNetworkAndLoadLeaderboard() {
-  const statusEl = document.getElementById('network-status');
-  try {
-    const res = await fetch(`${API_URL}/api/scores`, { method: 'GET', signal: AbortSignal.timeout(3000) });
-    if (res.ok) {
-      highScores = await res.json();
-      isOnline = true;
-      if (statusEl) {
-        statusEl.innerText = "Connected to global server!";
-        statusEl.className = "network-status online";
-      }
-    } else {
-      throw new Error();
-    }
-  } catch (err) {
-    isOnline = false;
-    loadLocalScores();
-    if (statusEl) {
-      statusEl.innerText = "Offline Mode (Local Leaderboard)";
-      statusEl.className = "network-status offline";
-    }
-  }
-  populateLeaderboardUI();
-}
 
-function loadLocalScores() {
-  try {
-    const local = localStorage.getItem('hedgehog_high_scores');
-    if (local) {
-      highScores = JSON.parse(local);
-    } else {
-      highScores = [
-        { name: "Sonic", score: 150, country: "JP" },
-        { name: "Mario", score: 120, country: "IT" },
-        { name: "Yoshi", score: 95, country: "JP" }
-      ];
-      localStorage.setItem('hedgehog_high_scores', JSON.stringify(highScores));
-    }
-  } catch (e) {
-    highScores = [];
-  }
-}
-
-function saveLocalScore(name, score, country) {
-  const cleanName = name.trim().substring(0, 15) || "Anonymous";
-  const cleanCountry = country.trim().toUpperCase().substring(0, 2) || "UN";
-  highScores.push({ name: cleanName, score: score, country: cleanCountry, date: new Date().toISOString() });
-  highScores.sort((a, b) => b.score - a.score);
-  highScores = highScores.slice(0, 10);
-  try {
-    localStorage.setItem('hedgehog_high_scores', JSON.stringify(highScores));
-  } catch (e) {}
-  populateLeaderboardUI();
-}
-
-function populateLeaderboardUI() {
-  const listEl = document.getElementById('leaderboard-list');
-  if (!listEl) return;
-  listEl.innerHTML = '';
-  if (highScores.length === 0) {
-    listEl.innerHTML = '<div class="loading-spinner">No scores posted yet!</div>';
-    return;
-  }
-  highScores.forEach((s, idx) => {
-    let rankClass = '';
-    if (idx === 0) rankClass = 'gold';
-    else if (idx === 1) rankClass = 'silver';
-    else if (idx === 2) rankClass = 'bronze';
-    
-    const row = document.createElement('div');
-    row.className = 'leaderboard-row';
-    row.innerHTML = `
-      <span class="rank-val ${rankClass}">${idx + 1}</span>
-      <span class="name-val">${escapeHtml(s.name)}</span>
-      <span class="country-val">${escapeHtml(s.country)}</span>
-      <span class="score-val">${s.score}</span>
-    `;
-    listEl.appendChild(row);
-  });
-}
-
-function escapeHtml(str) {
-  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-}
 
 // Particle System
 function spawnParticle(x, y, color, count = 5) {
@@ -427,14 +339,7 @@ function setupEventListeners() {
     switchScreen('menu-screen');
   });
 
-  // Leaderboard Screen
-  document.getElementById('btn-leaderboard').addEventListener('click', () => {
-    checkNetworkAndLoadLeaderboard();
-    switchScreen('leaderboard-screen');
-  });
-  document.getElementById('btn-leaderboard-back').addEventListener('click', () => {
-    switchScreen('menu-screen');
-  });
+
 
   // Play Again / Restart
   document.getElementById('btn-restart').addEventListener('click', () => {
@@ -445,42 +350,7 @@ function setupEventListeners() {
     switchScreen('menu-screen');
   });
 
-  // Submit Score Form
-  document.getElementById('submit-score-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const nameInput = document.getElementById('player-name');
-    const countryInput = document.getElementById('player-country');
-    const name = nameInput.value;
-    const country = countryInput.value.toUpperCase();
 
-    if (isOnline) {
-      try {
-        const res = await fetch(`${API_URL}/api/scores`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, score, country })
-        });
-        if (res.ok) {
-          highScores = await res.json();
-          populateLeaderboardUI();
-        } else {
-          saveLocalScore(name, score, country);
-        }
-      } catch (err) {
-        saveLocalScore(name, score, country);
-      }
-    } else {
-      saveLocalScore(name, score, country);
-    }
-    
-    nameInput.value = '';
-    countryInput.value = '';
-    switchScreen('leaderboard-screen');
-  });
-
-  document.getElementById('btn-skip-submit').addEventListener('click', () => {
-    switchScreen('menu-screen');
-  });
 
   // Keyboard events
   window.addEventListener('keydown', (e) => {
@@ -633,7 +503,7 @@ function setupTouchButton(btnId, keyCode) {
 
 function switchScreen(screenId, isGameOverlay = false) {
   // Hide all screens
-  const screens = ['menu-screen', 'how-screen', 'leaderboard-screen', 'submit-screen', 'gameover-screen'];
+  const screens = ['menu-screen', 'how-screen', 'gameover-screen'];
   screens.forEach(s => {
     document.getElementById(s).className = 'overlay-screen hidden';
   });
@@ -654,9 +524,7 @@ function switchScreen(screenId, isGameOverlay = false) {
     } else if (screenId === 'gameover-screen') {
       gameState = 'gameover';
       bgMusic.pause();
-    } else if (screenId === 'submit-screen') {
-      gameState = 'submit';
-      bgMusic.pause();
+
     }
   }
 }
@@ -707,10 +575,7 @@ function updateHUD() {
 // Assets Load finish trigger
 function onAssetsLoaded() {
   gameState = 'menu';
-  checkNetworkAndLoadLeaderboard();
-  
-  // Try periodic network checks
-  setInterval(checkNetworkAndLoadLeaderboard, 15000);
+
 }
 
 // Helper: check if AABB box overlap
@@ -1324,9 +1189,8 @@ function gameOver() {
   bgMusic.pause();
   playSound('gameover');
   
-  // Check if player qualifies for submission (always allow score submission)
   setTimeout(() => {
-    switchScreen('submit-screen');
+    switchScreen('gameover-screen');
   }, 1200);
 }
 
