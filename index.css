@@ -497,7 +497,7 @@ canvas {
   text-align: center;
 }
 
-/* Touch controls for mobile / casual play styling */
+/* Touch controls for mobile / casual play styling (Desktop default) */
 #touch-controls {
   position: absolute;
   bottom: 20px;
@@ -543,13 +543,237 @@ canvas {
   box-shadow: 0 0 15px var(--neon-cyan);
 }
 
-/* Responsive adjustment */
-@media (max-width: 850px) {
+/* Responsive adjustment - Mobile portrait top game, bottom keys, maximized */
+@media (max-width: 768px) {
+  body {
+    align-items: flex-start;
+    overflow-y: auto;
+  }
+
+  #app-container {
+    width: 100vw;
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    padding: 0;
+    margin: 0;
+    max-width: 100vw;
+    gap: 0;
+  }
+
+  .game-header {
+    margin: 5px 0;
+    text-align: center;
+    width: 100%;
+  }
+
+  .logo {
+    font-size: 1rem;
+  }
+
   #game-wrapper {
     width: 100vw;
-    height: 75vw; /* Maintain 4:3 Aspect Ratio */
-    max-width: 800px;
-    max-height: 600px;
+    height: 75vw; /* 4:3 Aspect Ratio */
+    max-width: 100%;
+    max-height: 75vw;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    border-top: none;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+    margin: 0;
+  }
+
+  .game-footer {
+    display: none; /* Hide instructions on mobile */
+  }
+
+  #touch-controls {
+    position: relative;
+    bottom: auto;
+    left: auto;
+    right: auto;
+    width: 100vw;
+    display: flex !important; /* Force show on mobile */
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 30px;
+    margin-top: auto; /* Push to bottom of view */
+    background: radial-gradient(circle at center, #1b192e 0%, #0e0d16 100%);
+    border-top: 2px solid var(--neon-cyan);
+    box-shadow: inset 0 4px 20px rgba(0,0,0,0.8);
+    pointer-events: auto;
+    z-index: 30;
+    box-sizing: border-box;
+    flex-grow: 1; /* occupy remaining height */
+  }
+
+  .control-group {
+    display: flex;
+    gap: 20px;
+  }
+
+  .ctrl-btn {
+    width: 72px;
+    height: 72px;
+    background: rgba(20, 18, 35, 0.95);
+    border: 3px solid var(--neon-cyan);
+    color: var(--neon-cyan);
+    font-size: 1.6rem;
+    border-radius: 50%;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.6), 0 0 10px rgba(0, 242, 254, 0.3);
+    text-shadow: 0 0 5px var(--neon-cyan);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: manipulation;
+    transition: background 0.05s ease, transform 0.05s ease;
+  }
+
+  .ctrl-btn:active {
+    background: var(--neon-cyan);
+    color: #000;
+    transform: scale(0.9);
+    box-shadow: 0 0 25px var(--neon-cyan);
+    text-shadow: none;
+  }
+
+  /* Make Up/Jump and Down/Drop keys look special */
+  #ctrl-up {
+    border-color: var(--neon-magenta);
+    color: var(--neon-magenta);
+    text-shadow: 0 0 5px var(--neon-magenta);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.6), 0 0 10px rgba(255, 0, 127, 0.3);
+    width: 80px;
+    height: 80px;
+    font-size: 2.2rem;
+  }
+
+  #ctrl-up:active {
+    background: var(--neon-magenta);
+    color: #000;
+    box-shadow: 0 0 30px var(--neon-magenta);
+    text-shadow: none;
+  }
+
+  /* Glass Panels responsive adjustment to fit inside scaled canvas */
+  .glass-panel {
+    padding: 12px 18px;
+    gap: 10px;
+    border-radius: 8px;
+    max-width: 95%;
+  }
+
+  .glass-panel.large-panel {
+    width: 95%;
+  }
+
+  .screen-title {
+    font-size: 0.95rem;
+  }
+
+  .subtitle {
+    font-size: 0.65rem;
+    margin-top: -5px;
+  }
+
+  .btn {
+    padding: 10px 18px;
+    font-size: 0.6rem;
+  }
+
+  .instructions-content {
+    gap: 6px;
+    font-size: 0.65rem;
+  }
+
+  .instruction-row {
+    padding-bottom: 4px;
+    gap: 6px;
+  }
+
+  .key-cap {
+    padding: 3px 6px;
+    font-size: 0.55rem;
+    min-width: 24px;
+  }
+
+  .instructions-text {
+    margin-top: 5px;
+    gap: 4px;
+    font-size: 0.65rem;
+  }
+
+  .instructions-text p {
+    margin: 1px 0;
+  }
+
+  .leaderboard-container {
+    max-height: 110px;
+    font-size: 0.65rem;
+  }
+
+  .leaderboard-header, .leaderboard-row {
+    padding: 6px 10px;
+  }
+
+  .leaderboard-header {
+    font-size: 0.55rem;
+  }
+
+  #submit-score-form {
+    gap: 8px;
+  }
+
+  .form-group {
+    gap: 3px;
+  }
+
+  .form-group label {
+    font-size: 0.5rem;
+  }
+
+  .form-group input {
+    padding: 8px 12px;
+    font-size: 0.8rem;
+  }
+
+  .final-score-text {
+    font-size: 0.85rem;
+  }
+
+  .final-score-text .highlight {
+    font-size: 0.95rem;
+  }
+
+  /* HUD tweaks */
+  #hud {
+    height: 44px;
+    padding: 0 15px;
+    top: 5px;
+  }
+
+  .hud-label {
+    font-size: 0.45rem;
+  }
+
+  .hud-value {
+    font-size: 0.65rem;
+  }
+
+  #hud-lives {
+    font-size: 0.6rem;
+  }
+
+  .hud-mute-btn {
+    top: 5px;
+    right: 15px;
+    width: 32px;
+    height: 32px;
+    font-size: 0.85rem;
+    border-radius: 6px;
   }
 }
 

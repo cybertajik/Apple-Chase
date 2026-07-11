@@ -491,6 +491,102 @@ function setupEventListeners() {
   setupTouchButton('ctrl-up', 'ArrowUp');
   setupTouchButton('ctrl-down', 'ArrowDown');
 
+  // Detect touch support and show on-screen buttons
+  const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  if (isTouchDevice) {
+    document.getElementById('touch-controls').classList.remove('hidden');
+  }
+
+  // Swipe Gestures on the game canvas/wrapper
+  const gameWrapper = document.getElementById('game-wrapper');
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchStartTime = 0;
+  let swipeTimeout = null;
+
+  gameWrapper.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 1) {
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+      touchStartTime = Date.now();
+      
+      // Stop active swipe movement on tap
+      if (swipeTimeout) {
+        clearTimeout(swipeTimeout);
+        keys['ArrowLeft'] = false;
+        keys['ArrowRight'] = false;
+      }
+    }
+  }, { passive: true });
+
+  gameWrapper.addEventListener('touchend', (e) => {
+    if (e.changedTouches.length === 1) {
+      const touchEndX = e.changedTouches[0].clientX;
+      const touchEndY = e.changedTouches[0].clientY;
+      const touchEndTime = Date.now();
+
+      const dx = touchEndX - touchStartX;
+      const dy = touchEndY - touchStartY;
+      const dt = touchEndTime - touchStartTime;
+
+      const minDistance = 30; // Min pixels for swipe
+      const maxTime = 400; // Max time for swipe in ms
+
+      if (dt < maxTime) {
+        if (Math.abs(dx) > Math.abs(dy)) {
+          // Horizontal swipe
+          if (Math.abs(dx) > minDistance) {
+            if (dx > 0) {
+              triggerSwipeKey('ArrowRight');
+            } else {
+              triggerSwipeKey('ArrowLeft');
+            }
+          }
+        } else {
+          // Vertical swipe
+          if (Math.abs(dy) > minDistance) {
+            if (dy < 0) {
+              // Swipe up to jump
+              triggerSwipeKey('ArrowUp');
+            } else {
+              // Swipe down to drop
+              triggerSwipeKey('ArrowDown');
+            }
+          }
+        }
+      }
+    }
+  }, { passive: true });
+
+  function triggerSwipeKey(keyCode) {
+    if (keyCode === 'ArrowUp') {
+      keys['ArrowUp'] = true;
+      setTimeout(() => { keys['ArrowUp'] = false; }, 80);
+    } else if (keyCode === 'ArrowDown') {
+      keys['ArrowDown'] = true;
+      setTimeout(() => { keys['ArrowDown'] = false; }, 120);
+    } else {
+      // Clear movement keys and apply new direction
+      keys['ArrowLeft'] = false;
+      keys['ArrowRight'] = false;
+      keys[keyCode] = true;
+      
+      if (swipeTimeout) clearTimeout(swipeTimeout);
+      swipeTimeout = setTimeout(() => {
+        keys[keyCode] = false;
+      }, 400); // Hold direction key down for 400ms
+    }
+  }
+
+  // Handle click on canvas to cancel horizontal swipe movement too
+  gameWrapper.addEventListener('mousedown', () => {
+    if (swipeTimeout) {
+      clearTimeout(swipeTimeout);
+      keys['ArrowLeft'] = false;
+      keys['ArrowRight'] = false;
+    }
+  });
+
   // Mute Button listener - toggles both SFX and background music
   document.getElementById('btn-mute').addEventListener('click', () => {
     isMuted = !isMuted;
