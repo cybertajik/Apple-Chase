@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hedgehog Apple Chase - Retro Platformer</title>
+  <meta name="description" content="Collect falling apples as a hedgehog while dodging angry dogs in this premium 2D retro platformer. Submit your high score to the global leaderboard!">
+  <!-- Custom retro Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="index.css">
+</head>
+<body>
+  <div id="app-container">
+    <!-- Header/Title -->
+    <header class="game-header">
+      <h1 class="logo">HEDGEHOG <span class="highlight">APPLE CHASE</span></h1>
+    </header>
+
+    <!-- Main Game Wrapper -->
+    <div id="game-wrapper">
+      <!-- HUD (Heads-Up Display) -->
+      <div id="hud" class="hidden">
+        <div class="hud-item">
+          <span class="hud-label">SCORE</span>
+          <span id="hud-score" class="hud-value">00000</span>
+        </div>
+        <div class="hud-item">
+          <span class="hud-label">LEVEL</span>
+          <span id="hud-level" class="hud-value">1</span>
+        </div>
+        <div class="hud-item">
+          <span class="hud-label">APPLES</span>
+          <span id="hud-apples" class="hud-value">0</span>
+        </div>
+        <div class="hud-item">
+          <span class="hud-label">LIVES</span>
+          <span id="hud-lives" class="hud-value">❤️❤️❤️</span>
+        </div>
+      </div>
+
+      <!-- Canvas Element -->
+      <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+      <!-- SCREEN: Main Menu -->
+      <div id="menu-screen" class="overlay-screen active">
+        <div class="glass-panel">
+          <h2 class="screen-title">MAIN MENU</h2>
+          <p class="subtitle">Collect apples, dodge the guards!</p>
+          
+          <div class="menu-actions">
+            <button id="btn-start" class="btn btn-primary">START GAME</button>
+            <button id="btn-how" class="btn btn-secondary">HOW TO PLAY</button>
+            <button id="btn-leaderboard" class="btn btn-secondary">LEADERBOARD</button>
+          </div>
+
+          <div class="quick-info">
+            <span class="network-status" id="network-status">Checking server connection...</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- SCREEN: How To Play -->
+      <div id="how-screen" class="overlay-screen hidden">
+        <div class="glass-panel large-panel">
+          <h2 class="screen-title">HOW TO PLAY</h2>
+          <div class="instructions-content">
+            <div class="instruction-row">
+              <span class="key-cap">◀</span>
+              <span class="key-cap">▶</span>
+              <span class="key-desc">Move Left / Right (A / D)</span>
+            </div>
+            <div class="instruction-row">
+              <span class="key-cap">▲</span>
+              <span class="key-desc">Jump UP / Go up through platforms (W / Space)</span>
+            </div>
+            <div class="instruction-row">
+              <span class="key-cap">▼</span>
+              <span class="key-desc">Drop DOWN through platforms (S)</span>
+            </div>
+            <div class="instructions-text">
+              <p>🍎 <strong>The Goal:</strong> Catch falling apples from the shaking apple trees before they rot and disappear.</p>
+              <p>🐕 <strong>The Danger:</strong> Dodge patrolling dogs on each floor. Touching them costs a life!</p>
+              <p>⚡ <strong>Speed Up:</strong> As time goes on, dogs run faster and apples disappear quicker. Keep up!</p>
+            </div>
+          </div>
+          <button id="btn-how-back" class="btn btn-secondary">BACK</button>
+        </div>
+      </div>
+
+      <!-- SCREEN: Leaderboard -->
+      <div id="leaderboard-screen" class="overlay-screen hidden">
+        <div class="glass-panel large-panel">
+          <h2 class="screen-title">LEADERBOARD</h2>
+          <div class="leaderboard-container">
+            <div class="leaderboard-header">
+              <span>RANK</span>
+              <span>NAME</span>
+              <span>COUNTRY</span>
+              <span>SCORE</span>
+            </div>
+            <div id="leaderboard-list" class="leaderboard-list">
+              <!-- Dynamically populated -->
+              <div class="loading-spinner">Loading high scores...</div>
+            </div>
+          </div>
+          <button id="btn-leaderboard-back" class="btn btn-secondary">BACK</button>
+        </div>
+      </div>
+
+      <!-- SCREEN: Submit Score -->
+      <div id="submit-screen" class="overlay-screen hidden">
+        <div class="glass-panel">
+          <h2 class="screen-title neon-text">NEW HIGH SCORE!</h2>
+          <p class="final-score-text">You scored <span id="final-score-val" class="highlight">0</span> points!</p>
+          
+          <form id="submit-score-form">
+            <div class="form-group">
+              <label for="player-name">YOUR NAME</label>
+              <input type="text" id="player-name" required maxlength="12" placeholder="Hedgehog" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label for="player-country">COUNTRY (2-LETTER CODE)</label>
+              <input type="text" id="player-country" required maxlength="2" placeholder="US" pattern="[A-Za-z]{2}" title="Please enter a 2-letter country code (e.g. US, JP, DE)" style="text-transform: uppercase;">
+            </div>
+            <div class="menu-actions">
+              <button type="submit" class="btn btn-primary">SUBMIT SCORE</button>
+              <button type="button" id="btn-skip-submit" class="btn btn-secondary">SKIP</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- SCREEN: Game Over -->
+      <div id="gameover-screen" class="overlay-screen hidden">
+        <div class="glass-panel">
+          <h1 class="screen-title error-text">GAME OVER</h1>
+          <p class="final-score-text">Final Score: <span id="gameover-score-val" class="highlight">0</span></p>
+          <div class="menu-actions">
+            <button id="btn-restart" class="btn btn-primary">PLAY AGAIN</button>
+            <button id="btn-gameover-menu" class="btn btn-secondary">MAIN MENU</button>
+          </div>
+        </div>
+      </div>
+      <!-- CRT scanline overlay -->
+      <div class="crt-overlay"></div>
+      
+      <!-- Audio Toggle Button -->
+      <button id="btn-mute" class="hud-mute-btn" title="Toggle Sound">🔊</button>
+    </div>
+
+    <!-- On-screen mobile/casual controls (hidden by default on large desktops but available for clicks) -->
+    <div id="touch-controls" class="hidden">
+      <div class="control-group movement-controls">
+        <button id="ctrl-left" class="ctrl-btn">◀</button>
+        <button id="ctrl-right" class="ctrl-btn">▶</button>
+      </div>
+      <div class="control-group action-controls">
+        <button id="ctrl-up" class="ctrl-btn">▲</button>
+        <button id="ctrl-down" class="ctrl-btn">▼</button>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="game-footer">
+      <p>Use keyboard arrow keys or WASD to navigate and jump floors. Space to Jump.</p>
+    </footer>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
