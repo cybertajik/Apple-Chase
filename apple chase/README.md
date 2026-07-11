@@ -4,11 +4,12 @@
 
 ## 🎮 Play Live Now
 
-You can play the game directly in your browser:
-👉 **[Play Apple Chase Live!](https://cybertajik.github.io/Apple-Chase/)**
+Click the arcade button below to play directly in your browser:
 
 <div align="center">
-  <iframe src="https://cybertajik.github.io/Apple-Chase/" width="800" height="640" style="border: 4px solid #00f2fe; border-radius: 12px; max-width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.5);"></iframe>
+  <a href="https://cybertajik.github.io/Apple-Chase/">
+    <img src="assets/play_button.png" alt="Play Apple Chase" width="450" style="border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.4);" />
+  </a>
 </div>
 
 ## Features
