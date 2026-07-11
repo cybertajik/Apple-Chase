@@ -7,7 +7,7 @@ const JUMP_FORCE = -11.5;
 const LEVEL_UP_APPLES = 5;
 
 // API URL (same origin as server, fallback to localhost:3000 if opened directly)
-const API_URL = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')
+const API_URL = window.location.origin.startsWith('http')
   ? window.location.origin
   : 'http://localhost:3000';
 
