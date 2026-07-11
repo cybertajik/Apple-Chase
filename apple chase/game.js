@@ -1184,7 +1184,6 @@ function takeDamage() {
 function gameOver() {
   gameState = 'gameover';
   document.getElementById('gameover-score-val').innerText = score;
-  document.getElementById('final-score-val').innerText = score;
   
   bgMusic.pause();
   playSound('gameover');
