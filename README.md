@@ -2,6 +2,15 @@
 
 **Apple Chase** is a retro-style 2D platformer web game where you play as a hedgehog trying to catch falling apples from shaking trees while dodging angry guard dogs and slithering snakes!
 
+## 🎮 Play Live Now
+
+You can play the game directly in your browser:
+👉 **[Play Apple Chase Live!](https://cybertajik.github.io/Apple-Chase/)**
+
+<div align="center">
+  <iframe src="https://cybertajik.github.io/Apple-Chase/" width="800" height="640" style="border: 4px solid #00f2fe; border-radius: 12px; max-width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.5);"></iframe>
+</div>
+
 ## Features
 
 * **Cross-Platform Controls**: Play on desktop using keyboard arrow keys/WASD, or on mobile using on-screen touch buttons and swipe gestures.
