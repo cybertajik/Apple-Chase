@@ -726,9 +726,9 @@ function update() {
   previousKeys = { ...keys };
 
   // 1b. UPDATE SHRINKABLE PLATFORM
-  // Accumulated timer: 100 seconds total (6000 frames at 60fps) of standing to fully collapse
+  // Accumulated timer: 60 seconds total (3600 frames at 60fps) of standing to fully collapse
   // Shrink rate is multiplied by shrinkSpeedMult (golden apple makes it 1.5x slower)
-  const SHRINK_TOTAL_FRAMES = 6000;
+  const SHRINK_TOTAL_FRAMES = 3600;
   platforms.forEach(platform => {
     if (!platform.shrinkable) return;
     const onPlatform = player.isGrounded &&
